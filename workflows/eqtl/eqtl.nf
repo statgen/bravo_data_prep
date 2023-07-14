@@ -1,15 +1,17 @@
-process validate_cond_header {
+process validate_header {
   label "highcpu"
 
   input:
   file tissue_tsv
+  val headers
 
   output:
   stdout
 
   script:
-  expected_n_tabs = params.cond_fields.size() - 1
-  expected_header = params.cond_fields.join('\t')
+  headers
+  expected_n_tabs = headers.size() - 1
+  expected_header = headers.join('\t')
   """
   # Verify tab delimited expected number of columns
   NTABS=\$(head -n 1 ${tissue_tsv} | grep -o '\t' | wc -l)
@@ -29,66 +31,88 @@ process validate_cond_header {
     echo "Observed: \${HEADER}"
     exit 1
   fi
-
   """
 }
 
 /*
   Strip header row from each file.
-  Remove trailing version numbers from Ensemble gene ids
-  Add tissue origin column
+  Remove trailing version numbers from Ensemble gene ids (column 1)
+  Add tissue origin column as last column.
 */
-process munge_cond_files {
+process munge_files {
   label "highcpu"
 
   input:
   file tissue_tsv
+  val analysis_type
 
   output:
-  file "*.cond.tsv"
-
-  publishDir "intermediates/conditional/", pattern: "*.cond.tsv"
+  file "*.tsv"
 
   shell:
   tissue_type = tissue_tsv.getFileName().toString().tokenize(".")[0]
   '''
   awk 'BEGIN {FS="\t"; OFS=FS}\
     (NR>1) { sub(/\\.[[:digit:]]+$/,"",$1); \
-    print $0 OFS "!{tissue_type}" }' !{tissue_tsv} > !{tissue_type}.cond.tsv
+    print $0 OFS "!{tissue_type}" }' !{tissue_tsv} > !{tissue_type}.!{analysis_type}.tsv
   '''
 }
 
-process merge_cond_files {
+/*
+  Write header row with typing for mongoimport included.  
+    including tissue column that was added in munge process.
+  Concatenate all tissue specific files.
+*/
+process merge_files {
   label "highcpu"
 
   input:
   file file_list
+  val analysis_type
 
   output:
-  file "all.cond.tsv"
+  file "all.${analysis_type}.tsv"
 
-  publishDir "result/conditional/", pattern: "all.cond.tsv"
+  publishDir "result/", pattern: "all.${analysis_type}.tsv"
 
   script:
+  outfile = "all.${analysis_type}.tsv"
   mongo_hdr = GroovyCollections.transpose( params.cond_fields, params.cond_types)
                 .collect{arr -> arr.join(".") + "()"}
                 .plus("tissue.string()")
                 .join("\t")
   """
-  echo "$mongo_hdr" > all.cond.tsv
+  echo "$mongo_hdr" > $outfile
 
   FILES=($file_list)
   for INFILE in \${FILES[@]}
   do
-    cat \$INFILE >> all.cond.tsv
+    cat \$INFILE >> $outfile
   done
   """
 }
 
-workflow {
-  tissue_tsv = channel.fromPath("${params.cond_eqtl_glob}")
+workflow conditional_eqtl {
+  cond_tsv      = channel.fromPath("${params.cond_eqtl_glob}")
+  cond_headers  = channel.of(params.cond_fields).collect()
+  analysis_type = "cond"
 
-  validate_cond_header(tissue_tsv)
-  munge_cond_files(tissue_tsv)
-  merge_cond_files(munge_cond_files.out.collect())
+  validate_header(cond_tsv, cond_headers)
+  munge_files(cond_tsv, analysis_type)
+  merge_files(munge_files.out.collect(), analysis_type)
+}
+
+workflow susie_eqtl {
+  susie_tsv     = channel.fromPath("${params.susie_eqtl_glob}")
+  susie_headers = channel.of(params.susie_fields).collect()
+  analysis_type = "susie"
+
+  validate_header(susie_tsv, susie_headers)
+  munge_files(susie_tsv, analysis_type)
+  merge_files(munge_files.out.collect(), analysis_type)
+}
+
+workflow {
+  conditional_eqtl()
+  susie_eqtl()
 }
