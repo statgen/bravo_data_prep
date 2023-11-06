@@ -30,6 +30,8 @@ result/
 *.html
 *.html.*
 *.tsv*
+*.tgz
+*.gz
 *.log
 
 # Experiments with nextflow DSL
