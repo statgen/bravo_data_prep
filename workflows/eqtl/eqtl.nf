@@ -52,15 +52,33 @@ process munge_files {
   shell:
   tissue_type = tissue_tsv.getFileName().toString().tokenize(".")[0]
   '''
-  awk 'BEGIN {FS="\t"; OFS=FS}\
-    (NR>1) { sub(/\\.[[:digit:]]+$/,"",$1); \
-    print $0 OFS "!{tissue_type}" }' !{tissue_tsv} > !{tissue_type}.!{analysis_type}.tsv
+  # Find 1-based index of the variant_id field by in the header
+  #  by removing everything after it and counting tabs. (Count tabs before variant_id)
+  TAB_CNT=$(head -n 1 !{tissue_tsv} | sed 's/variant_id.*//' | tr -dc '\t' | wc -c)
+  ID_COL_IDX=$(($TAB_CNT + 1))
+
+  # Replace the .digit suffix of the ensembl id in col 1
+  # Replace underscores with dashes in positional id.
+  # Remove chr prefix from positional id.
+  # Split positional id into component parts and write as new cols.
+  awk -v id_col=${ID_COL_IDX} \
+    'BEGIN {FS="\t"; OFS=FS}\
+    (NR>1) { \
+      sub(/\\.[[:digit:]]+$/, "", $1); \
+      gsub(/_/, "-", $id_col); \
+      sub(/chr/, "", $id_col); \
+      \
+      split($id_col, cpra_arr, "-"); \
+      for(i=1; i<=length(cpra_arr); i++) $0 = $0 OFS cpra_arr[i]; \
+      print $0 OFS "!{tissue_type}" \
+    }' !{tissue_tsv} > !{tissue_type}.!{analysis_type}.tsv
   '''
 }
 
 /*
   Write header row with typing for mongoimport included.  
-    including tissue column that was added in munge process.
+    including annotations for columns tissue columns added in munge process:
+    chrom, pos, ref, alt, tissue type
   Concatenate all tissue specific files.
 */
 process merge_files {
@@ -81,6 +99,10 @@ process merge_files {
   outfile = "all.${analysis_type}.tsv"
   mongo_hdr = GroovyCollections.transpose( fields, types)
                 .collect{arr -> arr.join(".") + "()"}
+                .plus("chrom.string()")
+                .plus("pos.int32()")
+                .plus("ref.string()")
+                .plus("alt.string()")
                 .plus("tissue.string()")
                 .join("\t")
   """
