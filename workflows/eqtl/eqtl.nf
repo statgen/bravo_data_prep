@@ -116,18 +116,6 @@ process merge_files {
   """
 }
 
-workflow conditional_eqtl {
-  analysis_type = "cond"
-  cond_tsv      = channel.fromPath("${params.cond_eqtl_glob}")
-  cond_headers  = channel.of(params.cond_fields).collect()
-  fields        = params.cond_fields
-  types         = params.cond_types
-
-  validate_header(cond_tsv, cond_headers)
-  munge_files(cond_tsv, analysis_type)
-  merge_files(munge_files.out.collect(), analysis_type, fields, types)
-}
-
 workflow susie_eqtl {
   analysis_type = "susie"
   susie_tsv     = channel.fromPath("${params.susie_eqtl_glob}")
@@ -141,6 +129,5 @@ workflow susie_eqtl {
 }
 
 workflow {
-  conditional_eqtl()
   susie_eqtl()
 }
