@@ -35,3 +35,7 @@ result/
 # Experiments with nextflow DSL
 workflows/experiments
 scratch.nf
+
+# Development data artifacts
+*.tgz
+*.gz
