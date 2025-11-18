@@ -29,6 +29,6 @@ BEGIN {
 { $1 = substr($1, 4, 2); print $0}
 HEREDOC
 
-zcat struct_var.gz |\
+zcat data/struct_var.gz |\
   awk -F $"\t" -v header="${HEADER}" "${AWK_SCRIPT}" |\
-  gzip - > struct_import.gz
+  gzip - > result/struct_import.gz
