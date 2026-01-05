@@ -4,9 +4,9 @@
 #  Prototype for importing data into staging/prod
 
 # Drop existing collection
-mongosh --eval 'db.structvar.drop()' bravo-demo
+mongosh --eval 'db.sv_list.drop()' bravo-demo
 
 # Import data
 zcat result/struct_import.gz |\
-  mongoimport --db=bravo-demo --collection=structvar --columnsHaveTypes --headerline \
+  mongoimport --db=bravo-demo --collection=sv_list --columnsHaveTypes --headerline \
     --parseGrace=stop --stopOnError --type tsv

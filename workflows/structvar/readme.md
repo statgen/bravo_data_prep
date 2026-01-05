@@ -1,5 +1,6 @@
 # Structural Variant Data Processing
 The structural variant data has three components: listing, reads, and coverage.
+Corresponding mongodb collections will be: sv_list, sv_reads, sv_cov
 
 ## Structural Variants: List
 Derived directly from the structural variants bcf.
