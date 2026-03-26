@@ -31,4 +31,4 @@ HEREDOC
 
 zcat data/struct_var.gz |\
   awk -F $"\t" -v header="${HEADER}" "${AWK_SCRIPT}" |\
-  gzip - > result/struct_import.gz
+  gzip - > result/structvar_list.tsv.gz
