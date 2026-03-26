@@ -37,3 +37,6 @@ result/
 # Experiments with nextflow DSL
 workflows/experiments
 scratch.nf
+
+# WIP files 
+sv_summary_small.json
